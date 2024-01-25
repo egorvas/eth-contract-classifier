@@ -23,11 +23,11 @@ This function retrieves the function and event signatures from the given ABI. It
 ### `isABI(abi, bytecode)`
 This function checks if the given ABI is compatible with the provided bytecode. It takes an ABI (Application Binary Interface) and the bytecode of the contract as arguments. It returns true if the ABI is compatible with the bytecode, otherwise returns false.
 
-### `getErcByAbi(abi, percent)`
-This function determines the ERC type of a contract based on its ABI. It takes the ABI (Application Binary Interface) of the contract and a percent value as arguments. The percent value represents the percentage of the ABI to be analyzed. The function returns the ERC type.
+### `getErcByAbi(abi)`
+This function takes an ABI and an object containing various ABIs for different ERC standards. It calculates the percentage of matches for each ERC standard, sorts them, and returns the ERC standard with the highest percentage of matches.
 
-### `getErcByBytecode(bytecode, percent)`
-This function determines the ERC type of a contract based on its bytecode. It takes the bytecode of the contract and a percent value as arguments. The percent value represents the percentage of bytecode to be analyzed. The function returns the ERC type.
+### `getErcByBytecode(bytecode)`
+This function works similarly to getErcByAbi, but it takes bytecode instead of an ABI. It uses the web3.js library to encode the ABI functions into bytecode and checks if the input bytecode includes the function bytecode.
 
 ### `getProxyStatus(bytecode)`
 This function returns prox status. It takes bytecode of the proxy contract.
