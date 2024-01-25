@@ -1,4 +1,4 @@
-# Project Name
+# eth-contract-classifier
 
 ## Description
 
