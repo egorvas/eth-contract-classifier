@@ -3,9 +3,7 @@ const { EVM } = require("evm");
 const abis = {
     erc20: require('./abis/erc20.json'),
     erc721: require('./abis/erc721.json'),
-    erc1155: require('./abis/erc1155.json'),
-    proxyImplementation: [{"inputs":[],"name":"implementation","outputs":[{"internalType":"address","name":"","type":"address"}],
-    "stateMutability":"view","type":"function"}]
+    erc1155: require('./abis/erc1155.json')
 }
 
 /**
@@ -33,24 +31,27 @@ function isABI(abi, bytecode) {
 }
 
 /**
- * Retrieves the proxy address from the given bytecode.
+ * Retrieves the status address from the given bytecode.
  * @param {string} bytecode - The bytecode of the contract.
  * @returns {string|undefined} - The proxy address if found, otherwise undefined.
  */
 function getProxyStatus(bytecode) {        
     const evm = new EVM(bytecode);
     const opcodes = evm.getOpcodes();
+    let result;
     if (opcodes.find(item => item.name === 'DELEGATECALL')) {
         const push20 = opcodes.find(item => item.name === 'PUSH20');
         if (push20){
-            return `DELEGATECALL to 0x${push20.pushData.toString('hex')}`;
-        }else if(isABI(abis.proxyImplementation, bytecode)){
-            return "IMPLEMENTATION";
+            result = `DELEGATECALL to 0x${push20.pushData.toString('hex')}`;
+        }else if(isABI([{"inputs":[],"name":"implementation",
+        "outputs":[{"internalType":"address","name":"","type":"address"}],
+        "stateMutability":"view","type":"function"}], bytecode)){
+            result = "IMPLEMENTATION";
         }else{
-            return "DELEGATECALL";
+            result = "DELEGATECALL";
         }
     }
-    return undefined;
+    return result;
 }
 
 /**
