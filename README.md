@@ -11,7 +11,7 @@ npm install eth-contract-classifier
 ## Usage
 
 Import the functions from the project and use them in your code:
-const { getErcByBytecode, getProxyAddress, getErcByAbi, getSigs, isABI } = require('eth-contract-classifier');
+const { getErcByBytecode, getProxyStatus, getErcByAbi, getSigs, isABI } = require('eth-contract-classifier');
 
 // Use the functions let ercType = getErcByAbi(abi); let ercTypeByBytecode = getErcByBytecode(bytecode);
 
@@ -29,8 +29,8 @@ This function determines the ERC type of a contract based on its ABI. It takes t
 ### `getErcByBytecode(bytecode, percent)`
 This function determines the ERC type of a contract based on its bytecode. It takes the bytecode of the contract and a percent value as arguments. The percent value represents the percentage of bytecode to be analyzed. The function returns the ERC type.
 
-### `getProxyAddress(bytecode)`
-This function retrieves the address of the proxy contract for a given contract. It takes bytecode of the proxy contract.
+### `getProxyStatus(bytecode)`
+This function returns prox status. It takes bytecode of the proxy contract.
 
 ## Contributing
 

@@ -3,7 +3,9 @@ const { EVM } = require("evm");
 const abis = {
     erc20: require('./abis/erc20.json'),
     erc721: require('./abis/erc721.json'),
-    erc1155: require('./abis/erc1155.json')
+    erc1155: require('./abis/erc1155.json'),
+    proxyImplementation: [{"inputs":[],"name":"implementation","outputs":[{"internalType":"address","name":"","type":"address"}],
+    "stateMutability":"view","type":"function"}]
 }
 
 /**
@@ -35,13 +37,19 @@ function isABI(abi, bytecode) {
  * @param {string} bytecode - The bytecode of the contract.
  * @returns {string|undefined} - The proxy address if found, otherwise undefined.
  */
-function getProxyAddress(bytecode) {        
+function getProxyStatus(bytecode) {        
     const evm = new EVM(bytecode);
     const opcodes = evm.getOpcodes();
     if (opcodes.find(item => item.name === 'DELEGATECALL')) {
         const push20 = opcodes.find(item => item.name === 'PUSH20');
-        if (push20) return push20.pushData.toString('hex');
-    }       
+        if (push20){
+            return `DELEGATECALL to 0x${push20.pushData.toString('hex')}`;
+        }else if(isABI(abis.proxyImplementation, bytecode)){
+            return "IMPLEMENTATION";
+        }else{
+            return "DELEGATECALL";
+        }
+    }
     return undefined;
 }
 
@@ -89,9 +97,8 @@ function getErcByBytecode(bytecode, percent = 100) {
     if (percents[0].percent >= percent){
         return percents[0].key.toUpperCase();
     }else{
-        const proxyAddress = getProxyAddress(bytecode);
-        return proxyAddress ? `DELEGATECALL to 0x${proxyAddress}` : undefined;
+        return getProxyStatus(bytecode);
     }
 }
 
-module.exports = { getErcByAbi, getErcByBytecode, isABI, getSigs, getProxyAddress }
+module.exports = { getErcByAbi, getErcByBytecode, isABI, getSigs, getProxyStatus }
