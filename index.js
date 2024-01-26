@@ -1,21 +1,21 @@
 const web3 = require('web3');
 const { EVM } = require("evm");
 const abis = {
-    erc1155: require('./abis/erc1155.json'),
-    erc721: require('./abis/erc721.json'),
-    erc20: require('./abis/erc20.json')
+    erc1155: require('./abis/ERC1155.json'),
+    erc721: require('./abis/ERC721.json'),
+    erc20: require('./abis/ERC20.json')
 }
 
 const abisMin = {
-    erc20: require('./abis/erc20-min.json'),
-    erc721: require('./abis/erc721-min.json'),
-    erc1155: require('./abis/erc1155-min.json')
+    erc20: require('./abis/ERC20-min.json'),
+    erc721: require('./abis/ERC721-min.json'),
+    erc1155: require('./abis/ERC1155-min.json')
 }
 
 const abisMax = {
-    erc20: require('./abis/erc20-max.json'),
-    erc721: require('./abis/erc721-max.json'),
-    erc1155: require('./abis/erc1155-max.json')
+    erc20: require('./abis/ERC20-max.json'),
+    erc721: require('./abis/ERC721-max.json'),
+    erc1155: require('./abis/ERC1155-max.json')
 }
 
 /**
