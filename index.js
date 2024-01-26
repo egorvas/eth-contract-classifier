@@ -152,4 +152,4 @@ function getErcByBytecode(bytecode) {
     }
 }
 
-module.exports = { getErcByAbi, getErcByBytecode, isABI, getSigs, getProxyStatus }
+module.exports = { getErcByAbi, getErcByBytecode, isABI, getSigs, getProxyStatus, getErcByBytecodePercent, getErcByAbiPercent}
