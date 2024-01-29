@@ -9,7 +9,7 @@
   "author": "egorvas",
   "license": "MIT",
   "dependencies": {
-    "evm": "^0.2.0",
+    "sevm": "^0.6.12",
     "web3": "^4.4.0"
   }
 }

@@ -1,5 +1,6 @@
 const web3 = require('web3');
-const { EVM } = require("evm");
+const { Contract } = require('sevm');
+require('sevm/4bytedb')
 const abis = {
     erc1155: require('./abis/ERC1155.json'),
     erc721: require('./abis/ERC721.json'),
@@ -31,6 +32,15 @@ function getSigs(abi) {
     return abiFunctions.concat(abiEvents);
 }
 
+function getByteCodeSigns(bytecode, beautify=false){
+    const contract = new Contract(bytecode).patchdb();
+    if (beautify){
+        return contract.getFunctions().concat(contract.getEvents());
+    }else{
+        return Object.keys(contract.functions).concat(Object.keys(contract.events));
+    }
+}
+
 /**
  * Checks if the given ABI is compatible with the provided bytecode.
  * @param {Array} abi - The ABI (Application Binary Interface) of the contract.
@@ -47,23 +57,9 @@ function isABI(abi, bytecode) {
  * @returns {string|undefined} - The proxy address if found, otherwise undefined.
  */
 function getProxyStatus(bytecode) {        
-    const evm = new EVM(bytecode);
-    const opcodes = evm.getOpcodes();
-
-    let result;
-    if (opcodes.find(item => item.name === 'DELEGATECALL')) {
-        const push20 = opcodes.find(item => item.name === 'PUSH20');
-        if (push20){
-            result = `DELEGATECALL to 0x${push20.pushData.toString('hex')}`;
-        }else if(isABI([{"inputs":[],"name":"implementation",
-        "outputs":[{"internalType":"address","name":"","type":"address"}],
-        "stateMutability":"view","type":"function"}], bytecode)){
-            result = "IMPLEMENTATION";
-        }else{
-            result = "DELEGATECALL";
-        }
-    }
-    return result;
+    const contract = new Contract(bytecode).patchdb();
+    const opcodes = contract.opcodes();
+    return opcodes.find(x=>x.mnemonic==="DELEGATECALL")? "PROXY": undefined;
 }
 
 /**
@@ -152,4 +148,4 @@ function getErcByBytecode(bytecode) {
     }
 }
 
-module.exports = { getErcByAbi, getErcByBytecode, isABI, getSigs, getProxyStatus, getErcByBytecodePercent, getErcByAbiPercent}
+module.exports = { getErcByAbi, getErcByBytecode, isABI, getSigs, getProxyStatus, getErcByBytecodePercent, getErcByAbiPercent, getByteCodeSigns}
