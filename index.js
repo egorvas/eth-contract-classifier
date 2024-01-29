@@ -1,6 +1,5 @@
 const web3 = require('web3');
-const { Contract } = require('sevm');
-require('sevm/4bytedb')
+const { EVM } = require("evm");
 const abis = {
     erc1155: require('./abis/ERC1155.json'),
     erc721: require('./abis/ERC721.json'),
@@ -33,11 +32,14 @@ function getSigs(abi) {
 }
 
 function getByteCodeSigns(bytecode, beautify=false){
-    const contract = new Contract(bytecode).patchdb();
+    const contract = new EVM(bytecode);
     if (beautify){
         return contract.getFunctions().concat(contract.getEvents());
     }else{
-        return Object.keys(contract.functions).concat(Object.keys(contract.events));
+        const opcodes = contract.getOpcodes();
+        const functions = [...new Set(opcodes.filter(opcode=> opcode.name === 'PUSH4' && opcode.pushData).map(opcode=>opcode.pushData.toString('hex')))]
+        const events = [...new Set(opcodes.filter(opcode=> opcode.name === 'PUSH32' && opcode.pushData).map(opcode=>opcode.pushData.toString('hex')))]
+        return functions.concat(events);
     }
 }
 
@@ -57,9 +59,9 @@ function isABI(abi, bytecode) {
  * @returns {string|undefined} - The proxy address if found, otherwise undefined.
  */
 function getProxyStatus(bytecode) {        
-    const contract = new Contract(bytecode).patchdb();
-    const opcodes = contract.opcodes();
-    return opcodes.find(x=>x.mnemonic==="DELEGATECALL")? "PROXY": undefined;
+    const evm = new EVM(bytecode);
+    const opcodes = evm.getOpcodes();  
+    return opcodes.find(x=>x.name==="DELEGATECALL")? "PROXY": undefined;
 }
 
 /**
