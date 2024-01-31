@@ -77,18 +77,55 @@ function isABI(abi, bytecode) {
 }
 
 
-
 /**
- * Checks if the given bytecode contains a DELEGATECALL opcode.
- * @param {string} bytecode - The bytecode to check.
- * @returns {boolean} - Returns true if the bytecode contains a DELEGATECALL opcode, false otherwise.
+ * Retrieves the proxy address from the given bytecode.
+ * @param {string} bytecode - The bytecode to extract the proxy address from.
+ * @returns {string|undefined} - The proxy address if found, otherwise undefined.
  */
-function isDelegateCall(bytecode) {      
-    const evm = new EVM(bytecode);
-    return evm.getOpcodes().find(x=>x.name==="DELEGATECALL")? true: false;
-}
+function getProxyAddressByBytecode(bytecode){
+    const EIP_1167_BYTECODE_PREFIX = '0x363d3d373d3d3d363d'
+    const EIP_1167_BYTECODE_SUFFIX = '57fd5bf3'
+    if (
+      typeof bytecode !== 'string' ||
+      !bytecode.startsWith(EIP_1167_BYTECODE_PREFIX)
+    ) {
+      return undefined;
+    }
+  
+    // detect length of address (20 bytes non-optimized, 0 < N < 20 bytes for vanity addresses)
+    const pushNHex = bytecode.substring(
+      EIP_1167_BYTECODE_PREFIX.length,
+      EIP_1167_BYTECODE_PREFIX.length + 2
+    )
+    // push1 ... push20 use opcodes 0x60 ... 0x73
+    const addressLength = parseInt(pushNHex, 16) - 0x5f
+  
+    if (addressLength < 1 || addressLength > 20) {
+        return undefined;
+    }
+  
+    const addressFromBytecode = bytecode.substring(
+      EIP_1167_BYTECODE_PREFIX.length + 2,
+      EIP_1167_BYTECODE_PREFIX.length + 2 + addressLength * 2 // address length is in bytes, 2 hex chars make up 1 byte
+    )
+  
+    const SUFFIX_OFFSET_FROM_ADDRESS_END = 22
+    if (
+      !bytecode
+        .substring(
+          EIP_1167_BYTECODE_PREFIX.length +
+            2 +
+            addressLength * 2 +
+            SUFFIX_OFFSET_FROM_ADDRESS_END
+        )
+        .startsWith(EIP_1167_BYTECODE_SUFFIX)
+    ) {
+        return undefined;
+    }
+    return `0x${addressFromBytecode.padStart(40, '0')}`
+  }
 
-/**
+  /**
  * Retrieves the proxy address for a given contract address.
  * @param {string} address - The contract address.
  * @param {string} web3Url - The URL of the Web3 provider.
@@ -100,12 +137,8 @@ async function getProxyAddress(address,web3Url,bytecode){
     try{
         const web3Client = new web3.Web3(web3Url);
         if (!bytecode) bytecode = await web3Client.eth.getCode(address);
-        const evm = new EVM(bytecode);
-        const opcodes = evm.getOpcodes();  
-        const push = opcodes.find(item => item.name === 'PUSH20');
-        if (opcodes.find(x=>x.name==="DELEGATECALL" && push && push.pushData)) {
-            proxyAddress = "0x"+push.pushData.toString('hex');
-        }else{
+        proxyAddress = getProxyAddressByBytecode(bytecode);
+        if (!proxyAddress) {
             const getAddress = (value) =>{
                 if (typeof value !== 'string' || value === '0x') {
                   throw new Error(`Invalid address value: ${value}`)
@@ -118,7 +151,7 @@ async function getProxyAddress(address,web3Url,bytecode){
                 if (address === zeroAddress) {
                   throw new Error('Empty address')
                 }
-                return address
+                return address;
             }
             const tag = "latest";
             const requests = [];
@@ -181,7 +214,7 @@ function getErcByBytecodePercent(bytecode, percent = 100) {
     if (percents[0].percent >= percent){
         return percents[0].key.toUpperCase();
     }else{
-        return isDelegateCall(bytecode)?"DELEGATECALL":undefined;
+        return getProxyAddressByBytecode(bytecode)?"PROXY":undefined;
     }
 }
 
@@ -219,8 +252,8 @@ function getErcByBytecode(bytecode) {
         points.sort((a, b) => b.points - a.points);
         return points[0].key.toUpperCase();
     } else {
-        return isDelegateCall(bytecode)?"DELEGATECALL":undefined;
+        return getProxyAddressByBytecode(bytecode)?"PROXY":undefined;
     }
 }
 
-module.exports = { getErcByAbi, getErcByBytecode, isABI, getSigs, getProxyAddress, getErcByBytecodePercent, getErcByAbiPercent, getBytecodeSigns, isDelegateCall}
+module.exports = { getErcByAbi, getErcByBytecode, isABI, getSigs, getProxyAddress, getErcByBytecodePercent, getErcByAbiPercent, getBytecodeSigns, getProxyAddressByBytecode}
