@@ -178,7 +178,7 @@ function getErcByBytecodePercent(bytecode, percent = 100) {
     if (percents[0].percent >= percent){
         return percents[0].key.toUpperCase();
     }else{
-        return getProxyStatus(bytecode);
+        return isDelegateCall(bytecode)?"DELEGATECALL":undefined;
     }
 }
 
