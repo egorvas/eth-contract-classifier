@@ -85,7 +85,7 @@ function isABI(abi, bytecode) {
  */
 function isDelegateCall(bytecode) {      
     const evm = new EVM(bytecode);
-    return evm.getOpcodes().find(x=>x.name==="DELEGATECALL")? "PROXY": undefined;
+    return evm.getOpcodes().find(x=>x.name==="DELEGATECALL")? true: false;
 }
 
 /**
