@@ -269,7 +269,7 @@ function getErcByBytecode(bytecode) {
         points.sort((a, b) => b.points - a.points);
         return points[0].key.toUpperCase();
     } else {
-        return getProxyAddressesByBytecode(bytecode)!==0?"PROXY":undefined;
+        return getProxyAddressesByBytecode(bytecode).length!==0?"PROXY":undefined;
     }
 }
 
