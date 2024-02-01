@@ -82,7 +82,20 @@ function isABI(abi, bytecode) {
  * @param {string} bytecode - The bytecode to extract the proxy address from.
  * @returns {string|undefined} - The proxy address if found, otherwise undefined.
  */
+
+function getProxyAddressByOptcodes(bytecode){
+    const evm = new EVM(bytecode);
+    return evm.getOpcodes()
+    .filter(x => x.name === "PUSH20" && 
+    x.pushData &&
+    /^[a-f0-9]{40}$/.test(x.pushData.toString('hex')))
+    .map(x=>"0x"+x.pushData.toString('hex'))
+    .filter(x=> ![`0x${'f'.repeat(40)}`,`0x${'0'.repeat(40)}`].includes(x));
+}
+
 function getProxyAddressByBytecode(bytecode){
+    console.log(getProxyAddressByOptcodes(bytecode))
+
     const EIP_1167_BYTECODE_PREFIX = '0x363d3d373d3d3d363d'
     const EIP_1167_BYTECODE_SUFFIX = '57fd5bf3'
     if (
@@ -122,6 +135,7 @@ function getProxyAddressByBytecode(bytecode){
     ) {
         return undefined;
     }
+
     return `0x${addressFromBytecode.padStart(40, '0')}`
   }
 
@@ -165,7 +179,16 @@ async function getProxyAddress(address,web3Url,bytecode){
     }catch(e){
         console.log(e);
     }
-    return proxyAddress;
+    if (proxyAddress){
+        return proxyAddress
+    }else{
+        const proxyAddressesByOptcodes = getProxyAddressByOptcodes(bytecode);
+        if (proxyAddressesByOptcodes.length > 0){
+            return proxyAddressesByOptcodes;
+        }else{
+            return proxyAddress;
+        }
+    }
 }
 
 
