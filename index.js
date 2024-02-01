@@ -94,7 +94,6 @@ function getProxyAddressByOptcodes(bytecode){
 }
 
 function getProxyAddressByBytecode(bytecode){
-    console.log(getProxyAddressByOptcodes(bytecode))
 
     const EIP_1167_BYTECODE_PREFIX = '0x363d3d373d3d3d363d'
     const EIP_1167_BYTECODE_SUFFIX = '57fd5bf3'
