@@ -89,12 +89,17 @@ function getProxyAddressesByBytecode(bytecode){
         return [EIP1167Proxy];
     }else{
         const evm = new EVM(bytecode);
-        return evm.getOpcodes()
-        .filter(x => x.name === "PUSH20" && 
-        x.pushData &&
-        /^[a-f0-9]{40}$/.test(x.pushData.toString('hex')))
-        .map(x=>"0x"+x.pushData.toString('hex'))
-        .filter(x=> ![`0x${'f'.repeat(40)}`,`0x${'0'.repeat(40)}`].includes(x));   
+        const opcodes = evm.getOpcodes();
+        if (opcodes.find(x=>x.name==="DELEGATECALL")){
+            return [...new Set(opcodes
+                .filter(x => x.name === "PUSH20" && 
+                x.pushData &&
+                /^[a-f0-9]{40}$/.test(x.pushData.toString('hex')))
+                .map(x=>"0x"+x.pushData.toString('hex'))
+                .filter(x=> ![`0x${'f'.repeat(40)}`,`0x${'0'.repeat(40)}`].includes(x)))];
+        }else{
+            return [];
+        }
     }
 }
 
