@@ -83,18 +83,22 @@ function isABI(abi, bytecode) {
  * @returns {string|undefined} - The proxy address if found, otherwise undefined.
  */
 
-function getProxyAddressByOptcodes(bytecode){
-    const evm = new EVM(bytecode);
-    return evm.getOpcodes()
-    .filter(x => x.name === "PUSH20" && 
-    x.pushData &&
-    /^[a-f0-9]{40}$/.test(x.pushData.toString('hex')))
-    .map(x=>"0x"+x.pushData.toString('hex'))
-    .filter(x=> ![`0x${'f'.repeat(40)}`,`0x${'0'.repeat(40)}`].includes(x));
+function getProxyAddressesByBytecode(bytecode){
+    const EIP1167Proxy = getEIP1167Proxy(bytecode);
+    if (EIP1167Proxy){
+        return [EIP1167Proxy];
+    }else{
+        const evm = new EVM(bytecode);
+        return evm.getOpcodes()
+        .filter(x => x.name === "PUSH20" && 
+        x.pushData &&
+        /^[a-f0-9]{40}$/.test(x.pushData.toString('hex')))
+        .map(x=>"0x"+x.pushData.toString('hex'))
+        .filter(x=> ![`0x${'f'.repeat(40)}`,`0x${'0'.repeat(40)}`].includes(x));   
+    }
 }
 
-function getProxyAddressByBytecode(bytecode){
-
+function getEIP1167Proxy(bytecode){
     const EIP_1167_BYTECODE_PREFIX = '0x363d3d373d3d3d363d'
     const EIP_1167_BYTECODE_SUFFIX = '57fd5bf3'
     if (
@@ -103,13 +107,10 @@ function getProxyAddressByBytecode(bytecode){
     ) {
       return undefined;
     }
-  
-    // detect length of address (20 bytes non-optimized, 0 < N < 20 bytes for vanity addresses)
     const pushNHex = bytecode.substring(
       EIP_1167_BYTECODE_PREFIX.length,
       EIP_1167_BYTECODE_PREFIX.length + 2
     )
-    // push1 ... push20 use opcodes 0x60 ... 0x73
     const addressLength = parseInt(pushNHex, 16) - 0x5f
   
     if (addressLength < 1 || addressLength > 20) {
@@ -118,9 +119,8 @@ function getProxyAddressByBytecode(bytecode){
   
     const addressFromBytecode = bytecode.substring(
       EIP_1167_BYTECODE_PREFIX.length + 2,
-      EIP_1167_BYTECODE_PREFIX.length + 2 + addressLength * 2 // address length is in bytes, 2 hex chars make up 1 byte
+      EIP_1167_BYTECODE_PREFIX.length + 2 + addressLength * 2
     )
-  
     const SUFFIX_OFFSET_FROM_ADDRESS_END = 22
     if (
       !bytecode
@@ -134,7 +134,6 @@ function getProxyAddressByBytecode(bytecode){
     ) {
         return undefined;
     }
-
     return `0x${addressFromBytecode.padStart(40, '0')}`
   }
 
@@ -145,13 +144,13 @@ function getProxyAddressByBytecode(bytecode){
  * @param {string} [bytecode] - The bytecode of the contract. If not provided, it will be fetched from the Web3 client.
  * @returns {Promise<string>} The proxy address of the contract.
  */
-async function getProxyAddress(address,web3Url,bytecode){
-    let proxyAddress;
+async function getProxyAddresses(address,web3Url,bytecode){
+    let proxyAddress=[];
     try{
         const web3Client = new web3.Web3(web3Url);
         if (!bytecode) bytecode = await web3Client.eth.getCode(address);
-        proxyAddress = getProxyAddressByBytecode(bytecode);
-        if (!proxyAddress) {
+        proxyAddress = getProxyAddressesByBytecode(bytecode);
+        if (proxyAddress.length===0) {
             const getAddress = (value) =>{
                 if (typeof value !== 'string' || value === '0x') {
                   throw new Error(`Invalid address value: ${value}`)
@@ -164,7 +163,7 @@ async function getProxyAddress(address,web3Url,bytecode){
                 if (address === zeroAddress) {
                   throw new Error('Empty address')
                 }
-                return address;
+                return [address];
             }
             const tag = "latest";
             const requests = [];
@@ -173,21 +172,12 @@ async function getProxyAddress(address,web3Url,bytecode){
             requests.push(web3Client.eth.getStorageAt(address, EIP_1967_BEACON_SLOT, tag)
             .then(getAddress).then(beaconAddress => web3Client.eth.call({to:beaconAddress, data:EIP_1167_BEACON_METHODS[0]})
             .catch(() => web3Client.eth.call({to:beaconAddress, data:EIP_1167_BEACON_METHODS[1]})).then(getAddress)));
-            proxyAddress = await Promise.any(requests).catch(() => undefined);
+            proxyAddress = await Promise.any(requests).catch(() => []);
         }
     }catch(e){
         console.log(e);
     }
-    if (proxyAddress){
-        return proxyAddress
-    }else{
-        const proxyAddressesByOptcodes = getProxyAddressByOptcodes(bytecode);
-        if (proxyAddressesByOptcodes.length > 0){
-            return proxyAddressesByOptcodes;
-        }else{
-            return proxyAddress;
-        }
-    }
+    return proxyAddress;
 }
 
 
@@ -236,7 +226,7 @@ function getErcByBytecodePercent(bytecode, percent = 100) {
     if (percents[0].percent >= percent){
         return percents[0].key.toUpperCase();
     }else{
-        return getProxyAddressByBytecode(bytecode)?"PROXY":undefined;
+        return getProxyAddressesByBytecode(bytecode).length!==0?"PROXY":undefined;
     }
 }
 
@@ -274,8 +264,8 @@ function getErcByBytecode(bytecode) {
         points.sort((a, b) => b.points - a.points);
         return points[0].key.toUpperCase();
     } else {
-        return getProxyAddressByBytecode(bytecode)?"PROXY":undefined;
+        return getProxyAddressesByBytecode(bytecode)!==0?"PROXY":undefined;
     }
 }
 
-module.exports = { getErcByAbi, getErcByBytecode, isABI, getSigs, getProxyAddress, getErcByBytecodePercent, getErcByAbiPercent, getBytecodeSigns, getProxyAddressByBytecode}
+module.exports = { getErcByAbi, getErcByBytecode, isABI, getSigs, getProxyAddresses, getErcByBytecodePercent, getErcByAbiPercent, getBytecodeSigns, getProxyAddressesByBytecode}
