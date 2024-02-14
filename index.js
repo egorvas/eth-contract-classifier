@@ -150,13 +150,14 @@ function getErcByBytecode(bytecode) {
 }
 
 async function getProxyAddresses(address, web3Url){
+    
     const provider = new JsonRpcProvider(web3Url);
     const proxy = await detectProxyTarget.default(
         address,
         ({ method, params }) => provider.send(method, params),
         "latest"
     );
-    if (proxy===null){
+    if (!/^[a-f0-9]{40}$/.test(proxy)){
         const bytecode = await provider.getCode(address);
         const evm = new EVM(bytecode);
         const opcodes = evm.getOpcodes();
@@ -223,4 +224,5 @@ async function getErcByNodePercent(address, web3Url, bytecode, percent=100){
     }
     return erc;
 }
+
 module.exports = { getErcByAbi, getErcByBytecode, isABI, getSigs, getProxyAddresses, getErcByBytecodePercent, getErcByAbiPercent, getBytecodeSigns, getErcByNode, getErcByNodePercent}
