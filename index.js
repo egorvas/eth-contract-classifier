@@ -149,7 +149,8 @@ function getErcByBytecode(bytecode) {
     }
 }
 
-async function getProxyAddresses(address){
+async function getProxyAddresses(address, web3Url){
+    const provider = new JsonRpcProvider(web3Url);
     const proxy = await detectProxyTarget.default(
         address,
         ({ method, params }) => provider.send(method, params),
