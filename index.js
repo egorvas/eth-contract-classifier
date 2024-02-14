@@ -2,7 +2,6 @@ const web3 = require('web3');
 const {JsonRpcProvider } = require("ethers");
 const {EVM} = require('evm');
 const detectProxyTarget = require('evm-proxy-detection');
-const provider = new JsonRpcProvider("http://p15.amilabs.net:8545");
 
 const abis = {
     erc1155: require('./abis/ERC1155.json'),
@@ -176,7 +175,8 @@ async function getProxyAddresses(address){
 }
 
 
-async function getErcByNode(address, bytecode){
+async function getErcByNode(address, web3Url, bytecode){
+    const provider = new JsonRpcProvider(web3Url);
     let fullBytecode = bytecode || await provider.getCode(address);
     let erc = getErcByBytecode(fullBytecode)
     if (!erc){
@@ -199,7 +199,8 @@ async function getErcByNode(address, bytecode){
     return erc;
 }
 
-async function getErcByNodePercent(address, bytecode, percent=100){
+async function getErcByNodePercent(address, web3Url, bytecode, percent=100){
+    const provider = new JsonRpcProvider(web3Url);
     let fullBytecode = bytecode || await provider.getCode(address);
     let erc = getErcByBytecodePercent(fullBytecode, percent)
     if (!erc){
