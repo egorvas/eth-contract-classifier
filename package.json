@@ -9,7 +9,9 @@
   "author": "egorvas",
   "license": "MIT",
   "dependencies": {
+    "ethers": "^6.10.0",
     "evm": "^0.2.0",
+    "evm-proxy-detection": "^1.2.0",
     "web3": "^4.4.0"
   }
 }

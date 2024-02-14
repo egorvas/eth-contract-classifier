@@ -1,20 +1,8 @@
 const web3 = require('web3');
+const {JsonRpcProvider } = require("ethers");
 const {EVM} = require('evm');
-
-const SLOTS = ['0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc', 
-'0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3', 
-'0xc5f16f0fcc639fa48a6947836d9850f504798523bf8c9a3a87d5876cf622bcf7'];
-
-const EIP_1967_BEACON_SLOT = '0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50';
-const EIP_1167_BEACON_METHODS = [
-  '0x5c60da1b00000000000000000000000000000000000000000000000000000000',
-  '0xda52571600000000000000000000000000000000000000000000000000000000',
-];
-const INTERFACES = [
-'0x5c60da1b00000000000000000000000000000000000000000000000000000000', 
-'0xa619486e00000000000000000000000000000000000000000000000000000000', 
-'0xbb82aa5e00000000000000000000000000000000000000000000000000000000',
-];
+const detectProxyTarget = require('evm-proxy-detection');
+const provider = new JsonRpcProvider("http://p15.amilabs.net:8545");
 
 const abis = {
     erc1155: require('./abis/ERC1155.json'),
@@ -78,115 +66,6 @@ function isABI(abi, bytecode) {
 
 
 /**
- * Retrieves the proxy address from the given bytecode.
- * @param {string} bytecode - The bytecode to extract the proxy address from.
- * @returns {string|undefined} - The proxy address if found, otherwise undefined.
- */
-
-function getProxyAddressesByBytecode(bytecode){
-    const EIP1167Proxy = getEIP1167Proxy(bytecode);
-    if (EIP1167Proxy){
-        return [EIP1167Proxy];
-    }else{
-        const evm = new EVM(bytecode);
-        const opcodes = evm.getOpcodes();
-        if (opcodes.find(x=>x.name==="DELEGATECALL")){
-            return [...new Set(opcodes
-                .filter(x => x.name === "PUSH20" && 
-                x.pushData &&
-                /^[a-f0-9]{40}$/.test(x.pushData.toString('hex')))
-                .map(x=>"0x"+x.pushData.toString('hex'))
-                .filter(x=> ![`0x${'f'.repeat(40)}`,`0x${'0'.repeat(40)}`].includes(x)))];
-        }else{
-            return [];
-        }
-    }
-}
-
-function getEIP1167Proxy(bytecode){
-    const EIP_1167_BYTECODE_PREFIX = '0x363d3d373d3d3d363d'
-    const EIP_1167_BYTECODE_SUFFIX = '57fd5bf3'
-    if (
-      typeof bytecode !== 'string' ||
-      !bytecode.startsWith(EIP_1167_BYTECODE_PREFIX)
-    ) {
-      return undefined;
-    }
-    const pushNHex = bytecode.substring(
-      EIP_1167_BYTECODE_PREFIX.length,
-      EIP_1167_BYTECODE_PREFIX.length + 2
-    )
-    const addressLength = parseInt(pushNHex, 16) - 0x5f
-  
-    if (addressLength < 1 || addressLength > 20) {
-        return undefined;
-    }
-  
-    const addressFromBytecode = bytecode.substring(
-      EIP_1167_BYTECODE_PREFIX.length + 2,
-      EIP_1167_BYTECODE_PREFIX.length + 2 + addressLength * 2
-    )
-    const SUFFIX_OFFSET_FROM_ADDRESS_END = 22
-    if (
-      !bytecode
-        .substring(
-          EIP_1167_BYTECODE_PREFIX.length +
-            2 +
-            addressLength * 2 +
-            SUFFIX_OFFSET_FROM_ADDRESS_END
-        )
-        .startsWith(EIP_1167_BYTECODE_SUFFIX)
-    ) {
-        return undefined;
-    }
-    return `0x${addressFromBytecode.padStart(40, '0')}`
-  }
-
-  /**
- * Retrieves the proxy address for a given contract address.
- * @param {string} address - The contract address.
- * @param {string} web3Url - The URL of the Web3 provider.
- * @param {string} [bytecode] - The bytecode of the contract. If not provided, it will be fetched from the Web3 client.
- * @returns {Promise<string>} The proxy address of the contract.
- */
-async function getProxyAddresses(address,web3Url,bytecode){
-    let proxyAddress=[];
-    try{
-        const web3Client = new web3.Web3(web3Url);
-        if (!bytecode) bytecode = await web3Client.eth.getCode(address);
-        proxyAddress = getProxyAddressesByBytecode(bytecode);
-        if (proxyAddress.length===0) {
-            const getAddress = (value) =>{
-                if (typeof value !== 'string' || value === '0x') {
-                  throw new Error(`Invalid address value: ${value}`)
-                }
-                let address = value
-                if (address.length === 66) {
-                  address = '0x' + address.slice(-40)
-                }
-                const zeroAddress = '0x' + '0'.repeat(40)
-                if (address === zeroAddress) {
-                  throw new Error('Empty address')
-                }
-                return [address];
-            }
-            const tag = "latest";
-            const requests = [];
-            SLOTS.forEach(slot => requests.push(web3Client.eth.getStorageAt(address, slot, tag).then(getAddress)));
-            INTERFACES.forEach(interface => requests.push(web3Client.eth.call({to:address, data:interface}, tag).then(getAddress)));
-            requests.push(web3Client.eth.getStorageAt(address, EIP_1967_BEACON_SLOT, tag)
-            .then(getAddress).then(beaconAddress => web3Client.eth.call({to:beaconAddress, data:EIP_1167_BEACON_METHODS[0]})
-            .catch(() => web3Client.eth.call({to:beaconAddress, data:EIP_1167_BEACON_METHODS[1]})).then(getAddress)));
-            proxyAddress = await Promise.any(requests).catch(() => []);
-        }
-    }catch(e){
-        console.log(e);
-    }
-    return proxyAddress;
-}
-
-
-/**
  * Returns the ERC token with the highest percentage match to the given ABI.
  * @param {object} abi - The ABI object to compare against.
  * @param {number} [percent=100] - The minimum percentage match required.
@@ -207,7 +86,6 @@ function getErcByAbiPercent(abi, percent = 100) {
     });
     return percents[0].percent >= percent ? percents[0].key.toUpperCase() : undefined;
 }
-
 
 /**
  * Calculates the percentage match of a given bytecode against a list of ERC contract ABIs.
@@ -231,10 +109,9 @@ function getErcByBytecodePercent(bytecode, percent = 100) {
     if (percents[0].percent >= percent){
         return percents[0].key.toUpperCase();
     }else{
-        return getProxyAddressesByBytecode(bytecode).length!==0?"PROXY":undefined;
+        return;
     }
 }
-
 
 /**
  * Returns the ERC contract key based on the provided ABI.
@@ -269,8 +146,79 @@ function getErcByBytecode(bytecode) {
         points.sort((a, b) => b.points - a.points);
         return points[0].key.toUpperCase();
     } else {
-        return getProxyAddressesByBytecode(bytecode).length!==0?"PROXY":undefined;
+        return;
     }
 }
 
-module.exports = { getErcByAbi, getErcByBytecode, isABI, getSigs, getProxyAddresses, getErcByBytecodePercent, getErcByAbiPercent, getBytecodeSigns, getProxyAddressesByBytecode}
+async function getProxyAddresses(address){
+    const proxy = await detectProxyTarget.default(
+        address,
+        ({ method, params }) => provider.send(method, params),
+        "latest"
+    );
+    if (proxy===null){
+        const bytecode = await provider.getCode(address);
+        const evm = new EVM(bytecode);
+        const opcodes = evm.getOpcodes();
+        if (opcodes.find(x=>x.name==="DELEGATECALL")){
+            return [...new Set(opcodes
+                .filter(x => x.name === "PUSH20" && 
+                x.pushData &&
+                /^[a-f0-9]{40}$/.test(x.pushData.toString('hex')))
+                .map(x=>"0x"+x.pushData.toString('hex'))
+                .filter(x=> ![`0x${'f'.repeat(40)}`,`0x${'0'.repeat(40)}`].includes(x)))];
+        }else{
+            return [];
+        }
+    }else{
+        return [proxy];
+    }
+}
+
+
+async function getErcByNode(address, bytecode){
+    let fullBytecode = bytecode || await provider.getCode(address);
+    let erc = getErcByBytecode(fullBytecode)
+    if (!erc){
+        let proxies = [];
+        async function getProxies(address){
+            let proxiesByAddress = await getProxyAddresses(address);
+            for await (let proxy of proxiesByAddress){
+                if (!proxies.includes(proxy)){
+                    proxies.push(proxy);
+                    await getProxies(proxy);
+                }
+            }
+        }
+        await getProxies(address);
+        for await (let proxy of proxies){
+            fullBytecode = fullBytecode + await provider.getCode(proxy);
+        }
+        erc = getErcByBytecode(fullBytecode);
+    }
+    return erc;
+}
+
+async function getErcByNodePercent(address, bytecode, percent=100){
+    let fullBytecode = bytecode || await provider.getCode(address);
+    let erc = getErcByBytecodePercent(fullBytecode, percent)
+    if (!erc){
+        let proxies = [];
+        async function getProxies(address){
+            let proxiesByAddress = await getProxyAddresses(address);
+            for await (let proxy of proxiesByAddress){
+                if (!proxies.includes(proxy)){
+                    proxies.push(proxy);
+                    await getProxies(proxy);
+                }
+            }
+        }
+        await getProxies(address);
+        for await (let proxy of proxies){
+            fullBytecode = fullBytecode + await provider.getCode(proxy);
+        }
+        erc = getErcByBytecodePercent(fullBytecode, percent);
+    }
+    return erc;
+}
+module.exports = { getErcByAbi, getErcByBytecode, isABI, getSigs, getProxyAddresses, getErcByBytecodePercent, getErcByAbiPercent, getBytecodeSigns, getErcByNode, getErcByNodePercent}
